@@ -1,0 +1,73 @@
+**First Method*************************************************************
+SELECT con.contest_id, con.hacker_id, con.name, 
+                  SUM(SB.total_submissions), 
+                  SUM(SB.total_accepted_submissions),
+                  SUM(VW.total_views),
+                  SUM(VW.total_unique_views)
+FROM  Contests AS con
+INNER JOIN Colleges AS col ON col.contest_id = con.contest_id
+INNER JOIN Challenges AS ch ON ch.college_id = col.college_id
+LEFT JOIN 
+                 ( SELECT  ss.challenge_id, 
+                                 SUM(ss.total_submissions) AS total_submissions, 
+                                 SUM(ss.total_accepted_submissions) AS  total_accepted_submissions
+                  FROM  Submission_Stats AS ss
+                  GROUP BY ss.challenge_id) AS SB 
+                  ON  ch.challenge_id = sb.challenge_id
+LEFT JOIN 
+               ( SELECT  vs.challenge_id, 
+                              SUM(vs.total_views) AS total_views,                                                                                     SUM(vs.total_unique_views) AS total_unique_views 
+                FROM  View_Stats AS vs
+               GROUP BY vs.challenge_id) AS VW 
+               ON  ch.challenge_id = vw.challenge_id                   
+GROUP BY  con.contest_id, con.hacker_id, con.name
+HAVING  SUM(VW.total_views)  + 
+               SUM(VW.total_unique_views) + 
+               SUM(SB.total_submissions) + 
+               SUM(SB.total_accepted_submissions) >  0
+ORDER BY con.contest_id ;
+ 
+********************************************************************************************************************************************************Second Method************************************************************
+WITH total_submit as (
+
+    SELECT
+            coll.contest_id,
+            SUM(ss.total_submissions) as sumts,
+            SUM(ss.total_accepted_submissions) as sumtas
+FROM        Colleges coll
+INNER JOIN  Challenges chall    ON chall.college_id = coll.college_id
+INNER JOIN  Submission_Stats ss ON chall.challenge_id = ss.challenge_id
+GROUP BY    coll.contest_id
+    
+),
+
+total_view as (
+
+    SELECT
+            coll.contest_id,
+            SUM(vs.total_views) as sumtv,
+            SUM(vs.total_unique_views) as sumtuv
+FROM        Colleges coll
+INNER JOIN  Challenges chall ON chall.college_id = coll.college_id
+INNER JOIN  View_Stats vs    ON chall.challenge_id = vs.challenge_id
+GROUP BY    coll.contest_id
+
+)
+
+SELECT
+            cont.contest_id,
+            cont.hacker_id,
+            cont.name,
+            ts.sumts,
+            ts.sumtas,
+            tv.sumtv,
+            tv.sumtuv
+FROM        Contests cont
+INNER JOIN  total_submit ts ON ts.contest_id = cont.contest_id
+INNER JOIN  total_view   tv ON tv.contest_id = cont.contest_id
+WHERE       ts.sumts  > 0
+OR          ts.sumtas > 0
+OR          tv.sumtv  > 0
+OR          tv.sumtuv > 0
+ORDER BY    cont.contest_id
+;
